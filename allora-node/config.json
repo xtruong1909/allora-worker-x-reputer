@@ -1,7 +1,7 @@
 {
     "wallet": {
-        "addressKeyName": "WalletName",
-        "addressRestoreMnemonic": "xxx_your_mnemonic_here_xxx",
+        "addressKeyName": "xtr-allora",
+        "addressRestoreMnemonic": "rival badge merge sausage car slender busy track moral effort narrow unknown",
         "alloraHomeDir": "",
         "gas": "auto",
         "gasAdjustment": 1.5,
