@@ -6,6 +6,9 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.preprocessing import MinMaxScaler
 import joblib
 from app_config import DATABASE_PATH
+import random
+from datetime import datetime
+import pytz
 
 # Ensure the models directory exists
 os.makedirs('models', exist_ok=True)
@@ -46,6 +49,24 @@ def create_lstm_model(look_back):
     model.compile(optimizer='adam', loss='mean_squared_error')
     return model
 
+# Hàm để kiểm tra và áp dụng điều chỉnh ngẫu nhiên dựa trên thời gian
+def apply_random_adjustment(prediction):
+    # Lấy thời gian hiện tại theo GMT+7 (Asia/Bangkok)
+    now = datetime.now(pytz.timezone('Asia/Bangkok'))
+    day_of_week = now.weekday()  # Monday is 0, Sunday is 6
+    hour = now.hour
+
+    # Kiểm tra khung giờ từ 19:00 - 07:00
+    if hour >= 19 or hour < 7:
+        if day_of_week == 5 or day_of_week == 6:  # Saturday (5) or Sunday (6)
+            adjustment = random.uniform(-0.001, 0.001)  # Biên độ từ -0.1% đến +0.1%
+        else:  # Monday to Friday (0-4)
+            adjustment = random.uniform(-0.002, 0.002)  # Biên độ từ -0.2% đến +0.2%
+    else:
+        adjustment = random.uniform(-0.0005, 0.0005)  # Biên độ từ -0.05% đến +0.05%
+    
+    return prediction * (1 + adjustment)
+
 # Generalized training function with scaler saved
 def train_and_save_model(token_name, look_back, prediction_horizon):
     try:
@@ -57,11 +78,17 @@ def train_and_save_model(token_name, look_back, prediction_horizon):
         model = create_lstm_model(look_back)
         model.fit(X, Y, epochs=10, batch_size=1, verbose=2)
         
-        # Save the model using the native Keras format
+        # Dự đoán
+        predictions = model.predict(X)
+        
+        # Áp dụng điều chỉnh ngẫu nhiên cho dự đoán
+        adjusted_predictions = [apply_random_adjustment(pred) for pred in predictions]
+        
+        # Lưu mô hình
         model_path = f'models/{token_name.lower()}_model_{prediction_horizon}m.keras'
         model.save(model_path, save_format='keras')
         
-        # Save the scaler
+        # Lưu scaler
         scaler_path = f'models/{token_name.lower()}_scaler_{prediction_horizon}m.pkl'
         joblib.dump(scaler, scaler_path)
         
