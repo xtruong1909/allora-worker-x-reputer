@@ -1,7 +1,7 @@
 {
     "wallet": {
         "addressKeyName": "xtr-allora",
-        "addressRestoreMnemonic": "$ALLORA_SEED_PHRASE",
+        "addressRestoreMnemonic": "",
         "alloraHomeDir": "",
         "gas": "auto",
         "gasAdjustment": 1.5,
