@@ -1,6 +1,6 @@
 {
     "wallet": {
-        "addressKeyName": "xtr-allora",
+        "addressKeyName": "allora",
         "addressRestoreMnemonic": "",
         "alloraHomeDir": "",
         "gas": "auto",
