@@ -5,14 +5,19 @@ from datetime import datetime, timedelta
 from zipfile import ZipFile
 import pandas as pd
 import sqlite3
-from app_config import DATABASE_PATH, BLOCK_TIME_SECONDS, DATA_BASE_PATH, ALLORA_VALIDATOR_API_URL, URL_QUERY_LATEST_BLOCK
+from app_config import (
+    DATABASE_PATH, BLOCK_TIME_SECONDS, DATA_BASE_PATH,
+    ALLORA_VALIDATOR_API_URL, URL_QUERY_LATEST_BLOCK
+)
 
-# Function to check and create the table if not exists
+# Tạo kết nối SQLite (đa luồng)
+conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
+
+# Tạo bảng prices nếu chưa tồn tại
 def check_create_table():
     try:
-        with sqlite3.connect(DATABASE_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
+        with conn:
+            conn.execute('''
                 CREATE TABLE IF NOT EXISTS prices (
                     block_height INTEGER,
                     token TEXT,
@@ -24,6 +29,7 @@ def check_create_table():
     except sqlite3.Error as e:
         print(f"An error occurred while creating the table: {str(e)}")
 
+# Tải dữ liệu từ Binance
 def download_binance_data(symbol, interval, year, month, download_path):
     base_url = f"https://data.binance.vision/data/futures/um/daily/klines"
     with ThreadPoolExecutor() as executor:
@@ -31,12 +37,13 @@ def download_binance_data(symbol, interval, year, month, download_path):
             url = f"{base_url}/{symbol}/{interval}/{symbol}-{interval}-{year}-{month:02d}-{day:02d}.zip"
             executor.submit(download_url, url, download_path)
 
+# Tải xuống tệp từ URL
 def download_url(url, download_path):
     target_file_path = os.path.join(download_path, os.path.basename(url)) 
     if os.path.exists(target_file_path):
         print(f"File already exists: {url}")
         return
-    
+
     response = requests.get(url)
     if response.status_code == 404:
         print(f"File does not exist: {url}")
@@ -46,19 +53,17 @@ def download_url(url, download_path):
             f.write(response.content)
         print(f"Downloaded: {url} to {target_file_path}")
 
+# Giải nén và xử lý dữ liệu Binance
 def extract_and_process_binance_data(token_name, download_path, start_date_epoch, end_date_epoch, latest_block_height):
     files = sorted([x for x in os.listdir(download_path) if x.endswith('.zip')])
 
-    if len(files) == 0:
+    if not files:
         print(f"No data files found for {token_name}")
         return
 
-    with sqlite3.connect(DATABASE_PATH) as conn:
-        cursor = conn.cursor()
-
+    with conn:
         for file in files:
             zip_file_path = os.path.join(download_path, file)
-
             try:
                 with ZipFile(zip_file_path) as myzip:
                     with myzip.open(myzip.filelist[0]) as f:
@@ -68,10 +73,9 @@ def extract_and_process_binance_data(token_name, download_path, start_date_epoch
                             "volume", "close_time", "quote_volume", 
                             "count", "taker_buy_volume", "taker_buy_quote_volume", "ignore"
                         ]
-                        
-                        df['close_time'] = pd.to_numeric(df['close_time'], errors='coerce')
+
+                        df['close_time'] = pd.to_datetime(df['close_time'], unit='ms', errors='coerce')
                         df.dropna(subset=['close_time'], inplace=True)
-                        df['close_time'] = pd.to_datetime(df['close_time'], unit='ms')
 
                         for _, row in df.iterrows():
                             price_timestamp = row['close_time'].timestamp()
@@ -85,17 +89,16 @@ def extract_and_process_binance_data(token_name, download_path, start_date_epoch
                                 continue
 
                             price = row['close']
-                            cursor.execute("INSERT OR REPLACE INTO prices (block_height, token, price) VALUES (?, ?, ?)", 
-                                           (block_height, token_name.lower(), price))
-                            print(f"{token_name} - {price_timestamp} - Inserted data point - block {block_height} : {price}")
+                            conn.execute(
+                                "INSERT OR REPLACE INTO prices (block_height, token, price) VALUES (?, ?, ?)",
+                                (block_height, token_name.lower(), price)
+                            )
+                            print(f"{token_name} - {price_timestamp} - Inserted block {block_height} : {price}")
 
             except Exception as e:
                 print(f"Error reading {zip_file_path}: {str(e)}")
-                continue
 
-        conn.commit()
-
-# Function to get the latest network block
+# Lấy block mới nhất từ mạng Allora
 def get_latest_network_block():
     try:
         url = f"{ALLORA_VALIDATOR_API_URL}{URL_QUERY_LATEST_BLOCK}"
@@ -103,30 +106,22 @@ def get_latest_network_block():
         response = requests.get(url)
         response.raise_for_status()
 
-         # Handle case where the response might be a list or dictionary
-        if isinstance(response, list):
-            block_data = response.json()[0]  # Assume it's a list, get the first element
-        else:
-            block_data = response.json()  # Assume it's already a dictionary
+        block_data = response.json()
 
-        try:
-            latest_block_height = int(block_data['block']['header']['height'])
-            print(f"Latest block height: {latest_block_height}")
-        except KeyError:
-            print("Error: Missing expected keys in block data.")
-            latest_block_height = 0
+        latest_block_height = int(block_data['block']['header']['height'])
+        print(f"Latest block height: {latest_block_height}")
+        return latest_block_height
 
-        return {'block': {'header': {'height': latest_block_height}}}
-    except Exception as e:
-        print(f'Failed to get block height: {str(e)}')
-        return {}
+    except (requests.RequestException, KeyError) as e:
+        print(f"Failed to get block height: {str(e)}")
+        return 0
 
-# Initialize price token function
+# Khởi tạo dữ liệu cho token
 def init_price_token(symbol, token_name, token_to):
     try:
         check_create_table()
 
-        with sqlite3.connect(DATABASE_PATH) as conn:
+        with conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM prices WHERE token=?", (token_name.lower(),))
             count = cursor.fetchone()[0]
@@ -134,12 +129,11 @@ def init_price_token(symbol, token_name, token_to):
         if count > 10000:
             print(f'Data already exists for {token_name} token, {count} entries')
             return
-        
+
         end_date = datetime.now()
         start_date = end_date - timedelta(days=31)
 
-        block_data = get_latest_network_block()
-        latest_block_height = int(block_data['block']['header']['height'])
+        latest_block_height = get_latest_network_block()
 
         start_date_epoch = int(start_date.timestamp())
         end_date_epoch = int(end_date.timestamp())
@@ -154,4 +148,4 @@ def init_price_token(symbol, token_name, token_to):
         print(f'Data initialized successfully for {token_name} token')
     except Exception as e:
         print(f'Failed to initialize data for {token_name} token: {str(e)}')
-        raise e
+        raise
