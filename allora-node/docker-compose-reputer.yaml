@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   truth-01-eth:
     container_name: truth-01-eth
