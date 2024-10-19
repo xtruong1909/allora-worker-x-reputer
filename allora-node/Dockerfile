@@ -1,20 +1,19 @@
-# Use an official Python runtime as the base image
-FROM amd64/python:3.9-buster as project_env
+# Sử dụng Docker image TensorFlow GPU với CUDA và cuDNN tích hợp sẵn
+FROM tensorflow/tensorflow:latest-gpu
 
-# Set the working directory in the container
+# Thiết lập thư mục làm việc bên trong container
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt requirements.txt
+# Cài đặt các thư viện Python bổ sung từ requirements.txt
+COPY requirements.txt .
 RUN pip install --upgrade pip setuptools \
     && pip install --timeout=360 --no-cache-dir -r requirements.txt
 
-# Install TensorFlow with GPU support
-RUN pip install --no-cache-dir tensorflow==2.13.0
-
-FROM project_env
-
+# Sao chép mã nguồn ứng dụng vào container
 COPY gunicorn_conf.py app.py app_config.py app_utils.py init_data.py /app/
 
-# Set the entrypoint command
+# Đảm bảo TensorFlow có thể sử dụng GPU
+ENV TF_FORCE_GPU_ALLOW_GROWTH=true
+
+# Khởi động ứng dụng với Gunicorn
 CMD ["gunicorn", "--conf", "/app/gunicorn_conf.py", "app:app"]
