@@ -7,7 +7,7 @@ WORKDIR /app
 # Cài đặt các thư viện Python bổ sung từ requirements.txt
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools \
-    && pip install --timeout=360 --no-cache-dir -r requirements.txt
+    && pip install --timeout=360 --no-cache-dir --ignore-installed -r updater-requirements.txt
 
 # Sao chép mã nguồn ứng dụng vào container
 COPY gunicorn_conf.py app.py app_config.py app_utils.py init_data.py /app/
