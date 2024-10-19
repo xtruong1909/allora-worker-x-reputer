@@ -1,26 +1,18 @@
-# Sử dụng TensorFlow GPU với phiên bản CUDA và cuDNN đã tích hợp
 FROM tensorflow/tensorflow:latest-gpu
 
-# Thiết lập thư mục làm việc bên trong container
 WORKDIR /app
 
-# Cài đặt các phụ thuộc hệ thống
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-dev \
-    build-essential \
-    git \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+# Xóa thủ công blinker nếu nó đã được cài đặt trước đó
+RUN rm -rf /usr/lib/python3/dist-packages/blinker-1.4.egg-info /usr/lib/python3/dist-packages/blinker*
 
-# Sao chép requirements.txt vào container
-COPY requirements.txt .
+COPY requirements.txt updater-requirements.txt /app/
 
-# Sao chép mã nguồn ứng dụng
-COPY train_models.py app_config.py .
+# Cài đặt các gói từ requirements.txt
+RUN pip install --upgrade pip setuptools \
+    && pip install --timeout=360 --no-cache-dir --ignore-installed -r /app/updater-requirements.txt
 
-# Đảm bảo TensorFlow có thể sử dụng GPU
+COPY gunicorn_conf.py app.py app_config.py app_utils.py init_data.py /app/
+
 ENV TF_FORCE_GPU_ALLOW_GROWTH=true
 
-# Khởi chạy script đào tạo
-CMD ["python3", "train_models.py"]
+CMD ["gunicorn", "--conf", "/app/gunicorn_conf.py", "app:app"]
