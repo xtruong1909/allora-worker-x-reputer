@@ -17,3 +17,4 @@ ENV TF_FORCE_GPU_ALLOW_GROWTH=true
 
 # Khởi động ứng dụng với Gunicorn
 CMD ["gunicorn", "--conf", "/app/gunicorn_conf.py", "app:app"]
+RUN pip install blinker==1.4
