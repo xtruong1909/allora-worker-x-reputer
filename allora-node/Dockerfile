@@ -16,9 +16,6 @@ RUN apt-get update && apt-get install -y \
 # Sao chép requirements.txt vào container
 COPY requirements.txt .
 
-# Cài đặt các thư viện Python từ requirements.txt
-RUN pip3 install --no-cache-dir -r requirements.txt
-
 # Sao chép mã nguồn ứng dụng
 COPY train_models.py app_config.py .
 
