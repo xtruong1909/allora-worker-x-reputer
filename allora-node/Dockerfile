@@ -17,16 +17,14 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m venv /env
 ENV PATH="/env/bin:$PATH"
 
-# Sao chép file yêu cầu
+# Cài đặt Flask và các gói phụ thuộc từ các tệp yêu cầu
 COPY requirements.txt updater-requirements.txt /app/
-
-# Cài đặt các gói phụ thuộc trong môi trường ảo
 RUN /env/bin/pip install --upgrade pip setuptools \
     && /env/bin/pip install --timeout=360 --no-cache-dir -r /app/requirements.txt \
     && /env/bin/pip install --timeout=360 --no-cache-dir -r /app/updater-requirements.txt
 
-# Xóa blinker thủ công nếu nó đã được cài đặt
-RUN rm -rf /env/lib/python3.10/site-packages/blinker*
+# Xóa thủ công blinker sau khi cài đặt
+RUN find / -name "blinker*" -exec rm -rf {} +
 
 # Sao chép mã nguồn ứng dụng
 COPY . /app
