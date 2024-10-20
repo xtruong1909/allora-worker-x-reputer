@@ -9,29 +9,31 @@ RUN apt-get update && apt-get install -y \
     libc-dev \
     libssl-dev \
     python3-dev \
-    python3-venv \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Tạo một môi trường ảo và cài đặt các gói Python bên trong
-RUN python3 -m venv /env
-ENV PATH="/env/bin:$PATH"
+# Cài đặt pip
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3
 
-# Sao chép file yêu cầu và cài đặt các gói bên trong môi trường ảo
+# Sao chép file yêu cầu và cài đặt các gói
 COPY requirements.txt updater-requirements.txt /app/
 
-# Cài đặt Flask và các gói từ requirements, sau đó gỡ cài đặt blinker nếu có
-RUN /env/bin/pip install --upgrade pip setuptools \
-    && /env/bin/pip install --timeout=360 --no-cache-dir -r /app/requirements.txt \
-    && /env/bin/pip install --timeout=360 --no-cache-dir -r /app/updater-requirements.txt \
-    && /env/bin/pip install Flask==2.1.2 \
-    && /env/bin/pip uninstall -y blinker
+# Cài đặt Flask và các gói từ requirements
+RUN pip install --upgrade pip setuptools \
+    && pip install --timeout=360 --no-cache-dir -r /app/requirements.txt \
+    && pip install --timeout=360 --no-cache-dir -r /app/updater-requirements.txt \
+    && pip install Flask==2.1.2
 
 # Sao chép mã nguồn ứng dụng
 COPY . /app
+
+# Tạo script để xóa blinker trong container khi chạy
+RUN echo "#!/bin/bash\nfind / -name \"blinker*\" 2>/dev/null | xargs rm -rf" > /app/remove_blinker.sh \
+    && chmod +x /app/remove_blinker.sh
 
 # Đảm bảo TensorFlow có thể sử dụng GPU
 ENV TF_FORCE_GPU_ALLOW_GROWTH=true
 
 # Khởi động ứng dụng
-CMD ["/env/bin/gunicorn", "--conf", "/app/gunicorn_conf.py", "app:app"]
+CMD ["/bin/bash", "-c", "/app/remove_blinker.sh && gunicorn --conf /app/gunicorn_conf.py app:app"]
