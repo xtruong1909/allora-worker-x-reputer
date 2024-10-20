@@ -30,6 +30,13 @@ RUN which pip && pip --version
 RUN python -m pip install --upgrade pip setuptools \
     && python -m pip install --timeout=360 --no-cache-dir numpy flask[async] gunicorn[gthread] retrying==1.3.3 requests torch scikit-learn aiohttp joblib pandas
 
+# Cài đặt scikit-learn trong tất cả các môi trường Python có sẵn
+RUN for python_bin in /usr/bin/python*; do \
+    if [[ "$python_bin" =~ python[0-9.]+$ ]]; then \
+        "$python_bin" -m pip install --upgrade pip setuptools && "$python_bin" -m pip install scikit-learn; \
+    fi; \
+done
+
 # Kiểm tra `pandas` đã cài đặt thành công
 RUN python -c "import pandas; print('Pandas version:', pandas.__version__)"
 
