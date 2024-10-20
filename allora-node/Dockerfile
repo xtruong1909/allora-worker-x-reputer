@@ -1,4 +1,4 @@
-  GNU nano 6.2                           allora-worker-x-reputer/allora-node/Dockerfile                                     FROM tensorflow/tensorflow:latest-gpu
+FROM tensorflow/tensorflow:latest-gpu
 
 WORKDIR /app
 
@@ -17,16 +17,13 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m venv /env
 ENV PATH="/env/bin:$PATH"
 
-# Cài đặt Flask mà không cài đặt blinker
-RUN /env/bin/pip install --no-cache-dir Flask==2.1.2 --no-deps
-
-# Sao chép file yêu cầu và cài đặt các gói bên trong môi trường ảo
+# Sao chép file yêu cầu
 COPY requirements.txt updater-requirements.txt /app/
 
-# Sử dụng pip trong môi trường ảo để cài đặt các gói, bỏ qua các phụ thuộc của blinker
+# Cài đặt các gói phụ thuộc trong môi trường ảo
 RUN /env/bin/pip install --upgrade pip setuptools \
-    && /env/bin/pip install --timeout=360 --no-cache-dir --ignore-installed -r /app/requirements.txt --no-deps \
-    && /env/bin/pip install --timeout=360 --no-cache-dir --ignore-installed -r /app/updater-requirements.txt --no-deps
+    && /env/bin/pip install --timeout=360 --no-cache-dir -r /app/requirements.txt \
+    && /env/bin/pip install --timeout=360 --no-cache-dir -r /app/updater-requirements.txt
 
 # Xóa blinker thủ công nếu nó đã được cài đặt
 RUN rm -rf /env/lib/python3.10/site-packages/blinker*
