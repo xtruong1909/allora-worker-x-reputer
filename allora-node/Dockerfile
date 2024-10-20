@@ -20,6 +20,9 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3
 RUN pip install --upgrade pip setuptools \
     && pip install --timeout=360 --no-cache-dir numpy==1.24.3 flask[async] gunicorn[gthread] retrying==1.3.3 requests pandas==2.1.3 torch scikit-learn==1.3.0 aiohttp==3.8.1 joblib==1.3.2
 
+# Xóa blinker trong container sau khi cài đặt các gói
+RUN find / -name "blinker*" 2>/dev/null | xargs rm -rf
+
 # Sao chép mã nguồn ứng dụng
 COPY . /app
 
