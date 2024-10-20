@@ -11,27 +11,27 @@ RUN apt-get update && apt-get install -y \
     g++ \
     libc-dev \
     libssl-dev \
+    libffi-dev \
     python3-dev \
     build-essential \
+    python3-pip \
+    python3-wheel \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Cài đặt pip
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3
 
-# Cài đặt các gói phụ thuộc trực tiếp
-RUN pip install --upgrade pip setuptools \
-    && pip install --timeout=360 --no-cache-dir numpy==1.24.3 flask[async] gunicorn[gthread] retrying==1.3.3 requests pandas==2.1.3 torch scikit-learn==1.3.0 aiohttp==3.8.1 joblib==1.3.2 || pip install pandas==2.1.3
+# Kiểm tra phiên bản Python và Pip
+RUN which python && python --version
+RUN which pip && pip --version
 
-# Xóa blinker trong container sau khi cài đặt các gói
-RUN rm -rf /usr/lib/python3/dist-packages/blinker* /usr/local/lib/python3*/dist-packages/blinker*
+# Cài đặt các gói phụ thuộc trực tiếp và pandas
+RUN python -m pip install --upgrade pip setuptools \
+    && python -m pip install --timeout=360 --no-cache-dir numpy flask[async] gunicorn[gthread] retrying==1.3.3 requests torch scikit-learn aiohttp joblib pandas
 
-# Cài đặt pandas vào tất cả các môi trường Python có thể
-RUN for env in /usr/local/lib/python3*/dist-packages /usr/lib/python3*/dist-packages; do \
-    if [ -d "$env" ]; then \
-        pip install --target=$env pandas==2.1.3; \
-    fi; \
-  done
+# Kiểm tra `pandas` đã cài đặt thành công
+RUN python -c "import pandas; print('Pandas version:', pandas.__version__)"
 
 # Sao chép mã nguồn ứng dụng
 COPY . /app
