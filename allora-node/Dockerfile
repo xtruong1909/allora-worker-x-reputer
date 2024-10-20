@@ -19,11 +19,12 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3
 # Sao chép file yêu cầu và cài đặt các gói
 COPY requirements.txt updater-requirements.txt /app/
 
-# Cài đặt Flask và các gói từ requirements
+# Cài đặt Flask, Pandas và các gói từ requirements
 RUN pip install --upgrade pip setuptools \
     && pip install --timeout=360 --no-cache-dir -r /app/requirements.txt \
-    && pip install --timeout=360 --no-cache-dir -r /app/updater-requirements.txt \
-    && pip install Flask==2.1.2
+    &&  \
+    && pip install numpy==1.24.3 flask[async] gunicorn[gthread] retrying==1.3.3 requests pandas==2.1.3 torch scikit-learn==1.3.0 aiohttp==3.8.1 joblib==1.3.2 \
+    && pip install Flask==2.1.2 pandas
 
 # Sao chép mã nguồn ứng dụng
 COPY . /app
